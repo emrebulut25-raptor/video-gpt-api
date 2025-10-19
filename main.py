@@ -5,7 +5,7 @@ app = FastAPI(
     description="Extracts scene-by-scene text prompts and emotions from uploaded videos.",
     version="1.0.0",
     servers=[
-        {"url": "https://video-gpt-api.onrender.com"}  # 👈 bu satır olmazsa ChatGPT Builder hata verir
+        {"url": "https://video-gpt-api.onrender.com"}  # 👈 Tek bir servers satırı olacak
     ]
 )
 
