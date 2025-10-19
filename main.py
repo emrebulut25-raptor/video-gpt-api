@@ -12,3 +12,12 @@ app = FastAPI(
 @app.get("/")
 def home():
     return {"message": "🚀 FastAPI çalışıyor!"}
+
+
+from fastapi import UploadFile, File
+
+@app.post("/analyze_video")
+async def analyze_video(file: UploadFile = File(...)):
+    # Burada video analizi yapılacak
+    # Şimdilik test için sadece dosya adını döndürelim
+    return {"message": f"Video '{file.filename}' analiz edildi!"}
