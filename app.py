@@ -3,27 +3,52 @@ import cv2
 import tempfile
 import os
 import numpy as np
-from transformers import pipeline
 
 app = FastAPI(
     title="Video GPT API",
     description="Extracts scene-by-scene text prompts and emotions from uploaded videos.",
     version="1.0.0",
-    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]
+    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]  # domainini burada güncel tut
 )
 
 @app.get("/")
 def home():
     return {"message": "🚀 FastAPI çalışıyor!"}
 
-# Duygu analiz modeli
-emotion_analyzer = pipeline("sentiment-analysis")
+def color_mood_from_frame(frame: np.ndarray) -> str:
+    mean_color = np.mean(frame, axis=(0, 1))  # BGR
+    b, g, r = mean_color
+    if r > g and r > b:
+        return "passionate or intense"
+    elif b > r and b > g:
+        return "calm or sad"
+    elif g > r and g > b:
+        return "natural or hopeful"
+    else:
+        return "balanced or neutral"
+
+def emotion_from_mood(mood: str) -> str:
+    if "intense" in mood or "passionate" in mood:
+        return "POSITIVE"
+    if "calm" in mood or "sad" in mood:
+        return "NEGATIVE"
+    if "hopeful" in mood or "natural" in mood:
+        return "POSITIVE"
+    return "NEUTRAL"
+
+def prompt_from_emotion(emotion: str, mood: str) -> str:
+    base = f"A {emotion.lower()} cinematic scene, {mood} atmosphere, cinematic lighting"
+    if emotion == "POSITIVE":
+        return base + ", warm tones, gentle camera movement"
+    if emotion == "NEGATIVE":
+        return base + ", cool tones, subtle grain, slow zoom"
+    return base + ", neutral palette, steady framing"
 
 @app.post("/analyze_video")
 async def analyze_video(file: UploadFile = File(...)):
     """
-    Videoyu sahnelere ayırır, her sahnenin duygusal tonunu analiz eder
-    ve sinematik promptlar üretir.
+    Videoyu sahnelere ayırır, her sahnenin duygusal tonunu basit görsel ipuçlarıyla tahmin eder,
+    ve sinematik prompt ile kısa storyboard cümlesi üretir.
     """
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(await file.read())
@@ -31,65 +56,78 @@ async def analyze_video(file: UploadFile = File(...)):
 
     cap = cv2.VideoCapture(temp_path)
     if not cap.isOpened():
+        os.remove(temp_path)
         return {"error": "Video açılamadı."}
 
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
     frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    duration = frame_count / fps
+    duration = frame_count / fps if fps else 0
 
     scenes = []
-    prev_frame = None
-    scene_start = 0
+    prev_gray = None
+    scene_start = 0.0
 
-    for i in range(frame_count):
+    # Sahne değişim eşiğini, videonun çözünürlüğüne göre ölçekleyelim
+    width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
+    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360)
+    # piksel sayısına göre dinamik eşik (deneysel, güvenli)
+    diff_threshold = max(150000, int(width * height * 0.25))
+
+    i = 0
+    while True:
         ret, frame = cap.read()
         if not ret:
+            # son sahneyi kapat
+            if i > 0:
+                scene_end = i / fps
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int((scene_start + scene_end) / 2 * fps))
+                ok, mid_frame = cap.read()
+                if ok:
+                    mood = color_mood_from_frame(mid_frame)
+                    emotion = emotion_from_mood(mood)
+                    prompt = prompt_from_emotion(emotion, mood)
+                    story = {
+                        "POSITIVE": "The camera captures a moment of joy or relief.",
+                        "NEGATIVE": "The scene depicts tension, sadness, or conflict.",
+                        "NEUTRAL":  "A neutral moment connecting two scenes."
+                    }[emotion]
+                    scenes.append({
+                        "scene_start": round(scene_start, 2),
+                        "scene_end": round(scene_end, 2),
+                        "emotion": emotion,
+                        "prompt": prompt,
+                        "storyboard": story
+                    })
             break
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        if prev_frame is not None:
-            diff = cv2.absdiff(gray, prev_frame)
+        if prev_gray is not None:
+            diff = cv2.absdiff(gray, prev_gray)
             non_zero = cv2.countNonZero(diff)
-            if non_zero > 500000:
+            if non_zero > diff_threshold:
                 scene_end = i / fps
-                midpoint = int((scene_start + scene_end) / 2 * fps)
-                cap.set(cv2.CAP_PROP_POS_FRAMES, midpoint)
-                _, mid_frame = cap.read()
-
-                mean_color = np.mean(mid_frame, axis=(0, 1))
-                r, g, b = mean_color
-
-                if r > g and r > b:
-                    color_mood = "passionate or intense"
-                elif b > r and b > g:
-                    color_mood = "calm or sad"
-                else:
-                    color_mood = "balanced or neutral"
-
-                scene_text = f"Scene from {round(scene_start,2)}s to {round(scene_end,2)}s appears {color_mood}."
-                emotion = emotion_analyzer(scene_text)[0]
-
-                ai_prompt = f"A {emotion['label'].lower()} cinematic scene, {color_mood} atmosphere, cinematic lighting."
-
-                if emotion['label'] == "POSITIVE":
-                    story = "The camera captures a moment of joy or relief."
-                elif emotion['label'] == "NEGATIVE":
-                    story = "The scene depicts tension, sadness, or conflict."
-                else:
-                    story = "A neutral moment connecting two emotional scenes."
-
-                scenes.append({
-                    "scene_start": round(scene_start, 2),
-                    "scene_end": round(scene_end, 2),
-                    "emotion": emotion['label'],
-                    "confidence": round(emotion['score'], 2),
-                    "prompt": ai_prompt,
-                    "storyboard": story
-                })
-
+                # orta kare
+                cap.set(cv2.CAP_PROP_POS_FRAMES, int((scene_start + scene_end) / 2 * fps))
+                ok, mid_frame = cap.read()
+                if ok:
+                    mood = color_mood_from_frame(mid_frame)
+                    emotion = emotion_from_mood(mood)
+                    prompt = prompt_from_emotion(emotion, mood)
+                    story = {
+                        "POSITIVE": "The camera captures a moment of joy or relief.",
+                        "NEGATIVE": "The scene depicts tension, sadness, or conflict.",
+                        "NEUTRAL":  "A neutral moment connecting two emotional scenes."
+                    }[emotion]
+                    scenes.append({
+                        "scene_start": round(scene_start, 2),
+                        "scene_end": round(scene_end, 2),
+                        "emotion": emotion,
+                        "prompt": prompt,
+                        "storyboard": story
+                    })
                 scene_start = scene_end
-        prev_frame = gray
+        prev_gray = gray
+        i += 1
 
     cap.release()
     os.remove(temp_path)
