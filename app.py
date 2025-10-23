@@ -47,9 +47,9 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
 @app.post("/analyze_video")
 async def analyze_video(video: UploadFile = File(...)):
     contents = await video.read()
-    video_path = "uploaded_video.mp4"
-    with open(video_path, "wb") as f:
-        f.write(contents)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
+        tmp.write(contents)
+        temp_path = tmp.name
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
