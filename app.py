@@ -45,11 +45,7 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
     return base + ", neutral palette, steady framing"
 
 @app.post("/analyze_video")
-async def analyze_video(file: UploadFile = File(...)):
-    """
-    Videoyu sahnelere ayırır, her sahnenin duygusal tonunu basit görsel ipuçlarıyla tahmin eder,
-    ve sinematik prompt ile kısa storyboard cümlesi üretir.
-    """
+async def analyze_video(video: UploadFile = File(...)):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(await file.read())
         temp_path = tmp.name
