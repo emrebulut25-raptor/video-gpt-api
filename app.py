@@ -46,7 +46,6 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
 
 @app.post("/analyze_video")
 async def analyze_video(video: UploadFile = File(...)):
-    # Videoyu geçici değil, doğrudan proje dizinine kaydet
     contents = await video.read()
     video_path = "uploaded_video.mp4"
     with open(video_path, "wb") as f:
