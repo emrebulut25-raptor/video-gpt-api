@@ -46,13 +46,15 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
 
 @app.post("/analyze_video")
 async def analyze_video(video: UploadFile = File(...)):
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-        tmp.write(await file.read())
-        temp_path = tmp.name
+    # Videoyu geçici değil, doğrudan proje dizinine kaydet
+    contents = await video.read()
+    video_path = "uploaded_video.mp4"
+    with open(video_path, "wb") as f:
+        f.write(contents)
 
-    cap = cv2.VideoCapture(temp_path)
+    cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        os.remove(temp_path)
+        os.remove(video_path)
         return {"error": "Video açılamadı."}
 
     fps = cap.get(cv2.CAP_PROP_FPS) or 24.0
@@ -63,17 +65,14 @@ async def analyze_video(video: UploadFile = File(...)):
     prev_gray = None
     scene_start = 0.0
 
-    # Sahne değişim eşiğini, videonun çözünürlüğüne göre ölçekleyelim
     width  = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360)
-    # piksel sayısına göre dinamik eşik (deneysel, güvenli)
     diff_threshold = max(150000, int(width * height * 0.25))
 
     i = 0
     while True:
         ret, frame = cap.read()
         if not ret:
-            # son sahneyi kapat
             if i > 0:
                 scene_end = i / fps
                 cap.set(cv2.CAP_PROP_POS_FRAMES, int((scene_start + scene_end) / 2 * fps))
@@ -85,7 +84,7 @@ async def analyze_video(video: UploadFile = File(...)):
                     story = {
                         "POSITIVE": "The camera captures a moment of joy or relief.",
                         "NEGATIVE": "The scene depicts tension, sadness, or conflict.",
-                        "NEUTRAL":  "A neutral moment connecting two scenes."
+                        "NEUTRAL": "A neutral moment connecting two scenes."
                     }[emotion]
                     scenes.append({
                         "scene_start": round(scene_start, 2),
@@ -102,7 +101,6 @@ async def analyze_video(video: UploadFile = File(...)):
             non_zero = cv2.countNonZero(diff)
             if non_zero > diff_threshold:
                 scene_end = i / fps
-                # orta kare
                 cap.set(cv2.CAP_PROP_POS_FRAMES, int((scene_start + scene_end) / 2 * fps))
                 ok, mid_frame = cap.read()
                 if ok:
@@ -112,7 +110,7 @@ async def analyze_video(video: UploadFile = File(...)):
                     story = {
                         "POSITIVE": "The camera captures a moment of joy or relief.",
                         "NEGATIVE": "The scene depicts tension, sadness, or conflict.",
-                        "NEUTRAL":  "A neutral moment connecting two emotional scenes."
+                        "NEUTRAL": "A neutral moment connecting two emotional scenes."
                     }[emotion]
                     scenes.append({
                         "scene_start": round(scene_start, 2),
@@ -126,7 +124,7 @@ async def analyze_video(video: UploadFile = File(...)):
         i += 1
 
     cap.release()
-    os.remove(temp_path)
+    os.remove(video_path)
 
     return {
         "total_duration": round(duration, 2),
