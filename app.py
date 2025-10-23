@@ -4,12 +4,12 @@ import tempfile
 import os
 import numpy as np
 
-# 🌐 API bilgisi
+# 🌐 API Bilgileri
 app = FastAPI(
     title="Video GPT API",
     description="Extracts scene-by-scene text prompts and emotions from uploaded videos.",
     version="1.0.0",
-    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]  # Render adresin burada
+    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]  # Render URL'in burada
 )
 
 # 🏠 Basit test endpoint
@@ -18,7 +18,7 @@ def home():
     return {"message": "🚀 FastAPI çalışıyor!"}
 
 
-# 🎨 Kare renginden duygu çıkaran yardımcı fonksiyonlar
+# 🎨 Renklerden duygu çıkarma yardımcı fonksiyonları
 def color_mood_from_frame(frame: np.ndarray) -> str:
     mean_color = np.mean(frame, axis=(0, 1))  # BGR
     b, g, r = mean_color
@@ -53,7 +53,9 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
 
 # 🎬 Video analizi endpoint
 @app.post("/analyze_video")
-async def analyze_video(file: UploadFile = File(...)):  # 👈 'video' değil, 'file'
+async def analyze_video(
+    file: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)")
+):
     contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(contents)
