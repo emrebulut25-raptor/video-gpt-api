@@ -8,7 +8,7 @@ app = FastAPI(
     title="Video GPT API",
     description="Extracts scene-by-scene text prompts and emotions from uploaded videos.",
     version="1.0.0",
-    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]
+    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]  # domainini güncel tut
 )
 
 @app.get("/")
@@ -16,7 +16,7 @@ def home():
     return {"message": "🚀 FastAPI çalışıyor!"}
 
 def color_mood_from_frame(frame: np.ndarray) -> str:
-    mean_color = np.mean(frame, axis=(0, 1))
+    mean_color = np.mean(frame, axis=(0, 1))  # BGR
     b, g, r = mean_color
     if r > g and r > b:
         return "passionate or intense"
@@ -45,12 +45,17 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
     return base + ", neutral palette, steady framing"
 
 @app.post("/analyze_video")
-async def analyze_video(video: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)")):
-    contents = await video.read()
+async def analyze_video(file: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)")):
+    """
+    Accepts a video file upload, analyzes scene transitions and infers emotional tone.
+    """
+    # 🔹 Dosyayı geçici bir yere kaydet
+    contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(contents)
         temp_path = tmp.name
 
+    # 🔹 Video dosyasını aç
     cap = cv2.VideoCapture(temp_path)
     if not cap.isOpened():
         os.remove(temp_path)
@@ -66,7 +71,7 @@ async def analyze_video(video: UploadFile = File(..., description="Upload a vide
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360)
-    diff_threshold = max(150000, int(width * height * 0.25))
+    diff_threshold = max(150000, int(width * height * 0.25))  # çözünürlüğe göre değişen eşik
 
     i = 0
     while True:
