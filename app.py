@@ -54,8 +54,8 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
 # 🎬 Video analizi endpoint
 @app.post("/analyze_video")
 async def analyze_video(
-    file: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)")
-):
+async def analyze_video(video: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)")):
+    contents = await video.read()
     contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(contents)
