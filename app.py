@@ -4,23 +4,19 @@ import tempfile
 import os
 import numpy as np
 
-# 🌐 API Bilgileri
 app = FastAPI(
     title="Video GPT API",
     description="Extracts scene-by-scene text prompts and emotions from uploaded videos.",
     version="1.0.0",
-    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]  # Render URL'in burada
+    servers=[{"url": "https://video-gpt-api-1.onrender.com"}]
 )
 
-# 🏠 Basit test endpoint
 @app.get("/")
 def home():
     return {"message": "🚀 FastAPI çalışıyor!"}
 
-
-# 🎨 Renklerden duygu çıkarma yardımcı fonksiyonları
 def color_mood_from_frame(frame: np.ndarray) -> str:
-    mean_color = np.mean(frame, axis=(0, 1))  # BGR
+    mean_color = np.mean(frame, axis=(0, 1))
     b, g, r = mean_color
     if r > g and r > b:
         return "passionate or intense"
@@ -31,7 +27,6 @@ def color_mood_from_frame(frame: np.ndarray) -> str:
     else:
         return "balanced or neutral"
 
-
 def emotion_from_mood(mood: str) -> str:
     if "intense" in mood or "passionate" in mood:
         return "POSITIVE"
@@ -41,7 +36,6 @@ def emotion_from_mood(mood: str) -> str:
         return "POSITIVE"
     return "NEUTRAL"
 
-
 def prompt_from_emotion(emotion: str, mood: str) -> str:
     base = f"A {emotion.lower()} cinematic scene, {mood} atmosphere, cinematic lighting"
     if emotion == "POSITIVE":
@@ -50,13 +44,9 @@ def prompt_from_emotion(emotion: str, mood: str) -> str:
         return base + ", cool tones, subtle grain, slow zoom"
     return base + ", neutral palette, steady framing"
 
-
-# 🎬 Video analizi endpoint
 @app.post("/analyze_video")
-async def analyze_video(
 async def analyze_video(video: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)")):
     contents = await video.read()
-    contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(contents)
         temp_path = tmp.name
@@ -76,13 +66,12 @@ async def analyze_video(video: UploadFile = File(..., description="Upload a vide
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360)
-    diff_threshold = max(150000, int(width * height * 0.25))  # 🔥 dinamik eşik
+    diff_threshold = max(150000, int(width * height * 0.25))
 
     i = 0
     while True:
         ret, frame = cap.read()
         if not ret:
-            # Son sahneyi ekle
             if i > 0:
                 scene_end = i / fps
                 cap.set(cv2.CAP_PROP_POS_FRAMES, int((scene_start + scene_end) / 2 * fps))
