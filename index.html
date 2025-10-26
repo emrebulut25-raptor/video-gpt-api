@@ -1,49 +1,107 @@
-<script>
-document.getElementById("analyzeForm").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const fileInput = document.getElementById("video");
-    const lang = document.getElementById("lang").value;
-    const resultDiv = document.getElementById("result");
-    resultDiv.innerHTML = "⏳ Analiz ediliyor...";
-
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
-    formData.append("lang", lang);
-
-    try {
-        const response = await fetch("https://video-gpt-api-1.onrender.com/analyze_video", {
-            method: "POST",
-            body: formData
-        });
-
-        if (!response.ok) {
-            resultDiv.innerHTML = "❌ Sunucu hatası: " + response.status;
-            return;
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>🎬 Video GPT Duygu Analizi</title>
+    <style>
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, #eef2f3, #dfe6e9);
+            color: #2c3e50;
+            text-align: center;
+            padding: 50px;
         }
+        h1 {
+            color: #007bff;
+            font-size: 2rem;
+        }
+        select, input, button {
+            margin: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #result {
+            margin-top: 30px;
+            background: #fff;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            text-align: left;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎬 Video GPT Duygu Analizi</h1>
+    <p>Bir video yükle, sahne sahne duygusal analizini öğren 🎯</p>
 
-        const data = await response.json();
-        console.log("Gelen veri:", data);
+    <form id="uploadForm">
+        <label for="video">🎥 Video seç (.mp4, .mov, .avi):</label><br>
+        <input type="file" id="video" name="video" accept="video/*" required /><br>
 
-        // Türkçe dahil çok dilli sonuç formatı
-        let html = `<h3>${data.message}</h3>`;
-        html += `<p><b>🎞️ Sahne sayısı:</b> ${data.scene_count}</p>`;
-        html += `<p><b>⏱️ Süre:</b> ${data.total_duration}s</p>`;
+        <label for="lang">🌐 Dil Seç:</label>
+        <select id="lang" name="lang">
+            <option value="tr">Türkçe 🇹🇷</option>
+            <option value="en">English 🇬🇧</option>
+            <option value="es">Español 🇪🇸</option>
+            <option value="zh">中文 🇨🇳</option>
+        </select><br>
 
-        html += `<ul>`;
-        data.scenes.forEach((scene, i) => {
-            html += `
-            <li>
-              🕒 <b>${scene.scene_start}s → ${scene.scene_end}s</b><br>
-              <b>Duygu:</b> ${scene.emotion}<br>
-              <b>Prompt:</b> ${scene.prompt}
-            </li>`;
+        <button type="submit">🚀 Analiz Et</button>
+    </form>
+
+    <p id="status" style="margin-top:20px; font-weight:bold; color:#ff6600;"></p>
+    <div id="result"></div>
+
+    <script>
+        const form = document.getElementById("uploadForm");
+        const statusEl = document.getElementById("status");
+        const resultEl = document.getElementById("result");
+
+        form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const fileInput = document.getElementById("video");
+            const langSelect = document.getElementById("lang");
+
+            if (!fileInput.files.length) {
+                alert("Lütfen bir video dosyası seçin 🎥");
+                return;
+            }
+
+            statusEl.textContent = "Analiz ediliyor... Lütfen bekle ⏳";
+            resultEl.textContent = "";
+
+            const formData = new FormData();
+            formData.append("video", fileInput.files[0]);
+            formData.append("lang", langSelect.value);
+
+            try {
+                const response = await fetch("/analyze_video", {
+                    method: "POST",
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error("Sunucu hatası: " + response.status);
+                }
+
+                const data = await response.json();
+                statusEl.textContent = "✅ Analiz tamamlandı!";
+                resultEl.textContent = JSON.stringify(data, null, 2);
+            } catch (err) {
+                statusEl.textContent = "❌ Hata: " + err.message;
+            }
         });
-        html += `</ul>`;
-        resultDiv.innerHTML = html;
-
-    } catch (error) {
-        console.error("Hata:", error);
-        resultDiv.innerHTML = "❌ Hata oluştu: " + error.message;
-    }
-});
-</script>
+    </script>
+</body>
+</html>
