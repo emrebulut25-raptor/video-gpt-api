@@ -8,10 +8,12 @@ app = FastAPI(
     servers=[{"url": "https://video-gpt-api-1.onrender.com"}]
 )
 
-@app.get("/")
-def home():
-    return {"message": "🚀 Multilingual Video Emotion Analyzer is running!"}
+from fastapi.responses import HTMLResponse
 
+@app.get("/", response_class=HTMLResponse)
+def serve_index():
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.post("/analyze_video")
 async def analyze_video(
