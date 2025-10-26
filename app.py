@@ -1,13 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, Form
-import cv2
-import tempfile
-import os
-import numpy as np
+import cv2, tempfile, os, numpy as np
 
 app = FastAPI(
     title="Video GPT API",
-    description="Extracts multilingual scene-by-scene emotional analysis from uploaded videos.",
-    version="2.0.0",
+    description="Extracts scene-by-scene text prompts and emotions from uploaded videos.",
+    version="1.1.0",
     servers=[{"url": "https://video-gpt-api-1.onrender.com"}]
 )
 
@@ -15,69 +12,13 @@ app = FastAPI(
 def home():
     return {"message": "🚀 Multilingual Video Emotion Analyzer is running!"}
 
-# 🧩 Renk tabanlı duygu tespiti
-def color_mood_from_frame(frame: np.ndarray) -> str:
-    mean_color = np.mean(frame, axis=(0, 1))
-    b, g, r = mean_color
-    if r > g and r > b:
-        return "passionate or intense"
-    elif b > r and b > g:
-        return "calm or melancholic"
-    elif g > r and g > b:
-        return "hopeful or natural"
-    else:
-        return "balanced or neutral"
 
-# 🧠 Renk moduna göre duygu tahmini
-def emotion_from_mood(mood: str) -> str:
-    if "intense" in mood or "passionate" in mood:
-        return "POSITIVE"
-    if "melancholic" in mood:
-        return "NEGATIVE"
-    if "hopeful" in mood:
-        return "POSITIVE"
-    return "NEUTRAL"
-
-# 🎬 Dinamik prompt üretimi (çeşitlilik)
-def prompt_from_emotion(emotion: str, mood: str) -> str:
-    base = f"A {emotion.lower()} cinematic scene with {mood} atmosphere."
-    if emotion == "POSITIVE":
-        options = [
-            "warm lighting, gentle camera pans, uplifting tone",
-            "soft sunlight, vivid colors, dynamic framing",
-            "joyful pace, smiling characters, immersive movement"
-        ]
-    elif emotion == "NEGATIVE":
-        options = [
-            "cold tones, slow zoom, emotional tension",
-            "dim lighting, subtle shadows, heavy silence",
-            "muted palette, slow cuts, reflective expression"
-        ]
-    else:
-        options = [
-            "steady framing, balanced colors, neutral pacing",
-            "transitional moment, connecting two emotions",
-            "documentary tone, realistic light balance"
-        ]
-    return base + " " + np.random.choice(options)
-
-# 🌍 Çok dilli çeviri
-def translate_output(text: str, lang: str) -> str:
-    translations = {
-        "tr": {"POSITIVE": "POZİTİF", "NEGATIVE": "NEGATİF", "NEUTRAL": "NÖTR"},
-        "es": {"POSITIVE": "POSITIVO", "NEGATIVE": "NEGATIVO", "NEUTRAL": "NEUTRO"},
-        "zh": {"POSITIVE": "积极", "NEGATIVE": "消极", "NEUTRAL": "中性"},
-        "en": {"POSITIVE": "POSITIVE", "NEGATIVE": "NEGATIVE", "NEUTRAL": "NEUTRAL"},
-    }
-    return translations.get(lang, translations["en"]).get(text, text)
-
-# 🎞️ Video analizi
 @app.post("/analyze_video")
 async def analyze_video(
-    video: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)"),
-    lang: str = Form("tr")
+    file: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)"),
+    lang: str = Form("en")  # 👈 frontend’den gelen dil bilgisi
 ):
-    contents = await video.read()
+    contents = await file.read()
     with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
         tmp.write(contents)
         temp_path = tmp.name
@@ -94,36 +35,31 @@ async def analyze_video(
     scenes = []
     prev_gray = None
     scene_start = 0.0
-
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360)
-    diff_threshold = max(150000, int(width * height * 0.5))  # 🔧 burada 0.5 yaptık
-
+    diff_threshold = max(150000, int(width * height * 0.25))
     i = 0
+
     while True:
         ret, frame = cap.read()
         if not ret:
             break
-
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         if prev_gray is not None:
             diff = cv2.absdiff(gray, prev_gray)
             non_zero = cv2.countNonZero(diff)
             if non_zero > diff_threshold:
                 scene_end = i / fps
-                cap.set(cv2.CAP_PROP_POS_FRAMES, int((scene_start + scene_end) / 2 * fps))
-                ok, mid_frame = cap.read()
-                if ok:
-                    mood = color_mood_from_frame(mid_frame)
-                    emotion = emotion_from_mood(mood)
-                    prompt = prompt_from_emotion(emotion, mood)
-                    scenes.append({
-                        "scene_start": round(scene_start, 2),
-                        "scene_end": round(scene_end, 2),
-                        "emotion": translate_output(emotion, lang),
-                        "prompt": prompt,
-                        "mood": mood
-                    })
+                mood = "passionate" if np.mean(frame[:,:,2]) > 100 else "calm"
+                emotion = "POSITIVE" if "passionate" in mood else "NEGATIVE"
+                prompt = f"A {emotion.lower()} cinematic scene, {mood} atmosphere"
+                scenes.append({
+                    "scene_start": round(scene_start, 2),
+                    "scene_end": round(scene_end, 2),
+                    "emotion": emotion,
+                    "mood": mood,
+                    "prompt": prompt
+                })
                 scene_start = scene_end
         prev_gray = gray
         i += 1
@@ -131,9 +67,18 @@ async def analyze_video(
     cap.release()
     os.remove(temp_path)
 
+    # 🌍 Dil desteği mesajları
+    translations = {
+        "en": "Video emotion analysis completed successfully!",
+        "tr": "Video duygu analizi başarıyla tamamlandı!",
+        "es": "¡Análisis de emociones del video completado con éxito!",
+        "zh": "视频情感分析已成功完成！"
+    }
+
     return {
+        "language": lang,
+        "message": translations.get(lang, translations["en"]),
         "total_duration": round(duration, 2),
         "scene_count": len(scenes),
-        "language": lang,
         "scenes": scenes
     }
