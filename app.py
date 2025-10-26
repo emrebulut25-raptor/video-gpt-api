@@ -135,3 +135,12 @@ async def analyze_video(file: UploadFile = File(..., description="Upload a video
         "scene_count": len(scenes),
         "scenes": scenes
     }
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+
+app.mount("/static", StaticFiles(directory="."), name="static")
+
+@app.get("/ui", response_class=HTMLResponse)
+def ui():
+    with open("index.html", "r", encoding="utf-8") as f:
+        return f.read()

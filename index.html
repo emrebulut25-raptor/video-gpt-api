@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Video GPT - Duygu Analizi</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      background: #f5f7fa;
+      color: #333;
+    }
+    h1 {
+      color: #007bff;
+    }
+    #result {
+      margin-top: 20px;
+      padding: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .scene {
+      border-bottom: 1px solid #ddd;
+      padding: 10px 0;
+    }
+    .scene:last-child {
+      border-bottom: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎬 Video GPT Duygu Analizi</h1>
+  <p>Bir video yükle, sahne sahne duygusal analizi öğren 👇</p>
+
+  <input type="file" id="videoInput" accept="video/*">
+  <button id="uploadBtn">Analiz Et</button>
+
+  <div id="loading" style="display:none; color: orange; margin-top: 10px;">Analiz ediliyor... Lütfen bekle ⚙️</div>
+  <div id="result"></div>
+
+  <script>
+    const btn = document.getElementById('uploadBtn');
+    const input = document.getElementById('videoInput');
+    const resultDiv = document.getElementById('result');
+    const loading = document.getElementById('loading');
+
+    btn.addEventListener('click', async () => {
+      const file = input.files[0];
+      if (!file) {
+        alert("Lütfen bir video seç!");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      loading.style.display = "block";
+      resultDiv.innerHTML = "";
+
+      try {
+        const res = await fetch("https://video-gpt-api-1.onrender.com/analyze_video", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+        loading.style.display = "none";
+
+        if (data.error) {
+          resultDiv.innerHTML = `<p style="color:red;">❌ ${data.error}</p>`;
+          return;
+        }
+
+        resultDiv.innerHTML = `
+          <h3>🎞️ Toplam Süre: ${data.total_duration}s</h3>
+          <h4>📸 Sahne Sayısı: ${data.scene_count}</h4>
+          ${data.scenes.map(scene => `
+            <div class="scene">
+              <strong>🕒 ${scene.scene_start}s → ${scene.scene_end}s</strong><br>
+              <b>Duygu:</b> ${scene.emotion}<br>
+              <b>Prompt:</b> ${scene.prompt}<br>
+              <b>Storyboard:</b> ${scene.storyboard}
+            </div>
+          `).join('')}
+        `;
+      } catch (e) {
+        loading.style.display = "none";
+        resultDiv.innerHTML = `<p style="color:red;">Hata oluştu: ${e.message}</p>`;
+      }
+    });
+  </script>
+</body>
+</html>
+
