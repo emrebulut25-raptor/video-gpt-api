@@ -12,22 +12,20 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# Eğer static klasörü yoksa oluştur
+# Statik dosyalar için klasör oluştur
 if not os.path.exists("static"):
     os.makedirs("static")
 
-# Statik dosyaları bağla (örneğin CSS, JS)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Ana sayfa (index.html'i göster)
+# Ana sayfa: index.html dosyasını göster
 @app.get("/", response_class=HTMLResponse)
 def serve_index():
     file_path = os.path.join(os.path.dirname(__file__), "index.html")
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            return f.read()
-    else:
-        return "<h2>index.html bulunamadı ⚠️</h2>"
+    if not os.path.exists(file_path):
+        return "<h2 style='color:red;'>⚠️ index.html bulunamadı! Lütfen app.py ile aynı klasörde olduğundan emin ol.</h2>"
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
 
 # Renkten ruh hali çıkarımı
 def color_mood_from_frame(frame: np.ndarray) -> str:
@@ -42,7 +40,7 @@ def color_mood_from_frame(frame: np.ndarray) -> str:
     else:
         return "balanced or neutral"
 
-# Duygu tespiti
+# Duygu tahmini
 def emotion_from_mood(mood: str) -> str:
     if "intense" in mood or "passionate" in mood:
         return "POSITIVE"
@@ -52,33 +50,33 @@ def emotion_from_mood(mood: str) -> str:
         return "POSITIVE"
     return "NEUTRAL"
 
-# Prompt oluşturma
+# Çok dilli prompt oluşturma
 def prompt_from_emotion(emotion: str, mood: str, lang: str) -> str:
     prompts = {
         "en": {
-            "POSITIVE": f"A positive cinematic scene, {mood} atmosphere, cinematic lighting, warm tones, gentle camera movement.",
-            "NEGATIVE": f"A melancholic or tense cinematic scene, {mood} tone, cool lighting, slow zoom, emotional depth.",
-            "NEUTRAL": f"A balanced neutral cinematic moment, {mood} tone, steady camera, soft natural light."
+            "POSITIVE": f"A positive cinematic scene, {mood} atmosphere, warm tones, gentle camera movement.",
+            "NEGATIVE": f"A melancholic or tense cinematic scene, {mood} tone, cool lighting, slow zoom.",
+            "NEUTRAL": f"A balanced neutral cinematic moment, {mood} tone, soft natural light."
         },
         "tr": {
-            "POSITIVE": f"Pozitif, {mood} bir atmosferde sinematik bir sahne, sıcak tonlar, yumuşak kamera hareketi.",
-            "NEGATIVE": f"Hüzünlü veya gergin bir sinematik sahne, {mood} tonlar, soğuk ışık, yavaş zoom.",
-            "NEUTRAL": f"Dengeli, doğal ışıkta nötr bir sinematik sahne, {mood} atmosfer."
+            "POSITIVE": f"Pozitif bir sinematik sahne, {mood} atmosfer, sıcak tonlar, yumuşak kamera hareketi.",
+            "NEGATIVE": f"Hüzünlü veya gergin bir sinematik sahne, {mood} tonlar, soğuk ışık, yavaş yakınlaşma.",
+            "NEUTRAL": f"Dengeli, nötr bir sinematik sahne, {mood} atmosfer, doğal ışık."
         },
         "es": {
-            "POSITIVE": f"Una escena cinematográfica positiva, atmósfera {mood}, tonos cálidos y movimiento suave de cámara.",
-            "NEGATIVE": f"Una escena melancólica o tensa, tono {mood}, iluminación fría y enfoque lento.",
-            "NEUTRAL": f"Una escena cinematográfica neutral, tono {mood}, luz natural y cámara estable."
+            "POSITIVE": f"Una escena cinematográfica positiva, atmósfera {mood}, tonos cálidos, movimiento suave de cámara.",
+            "NEGATIVE": f"Una escena tensa o melancólica, tono {mood}, iluminación fría, zoom lento.",
+            "NEUTRAL": f"Una escena cinematográfica neutral, atmósfera {mood}, luz natural y equilibrio."
         },
         "zh": {
             "POSITIVE": f"积极的电影场景，{mood}氛围，暖色调，柔和的镜头移动。",
             "NEGATIVE": f"忧郁或紧张的电影场景，{mood}色调，冷光，缓慢的变焦。",
-            "NEUTRAL": f"平衡中性的电影片段，{mood}氛围，自然光，稳定镜头。"
+            "NEUTRAL": f"平衡中性的电影场景，{mood}氛围，自然光，稳定镜头。"
         }
     }
     return prompts.get(lang, prompts["en"])[emotion]
 
-# API endpoint — video analizi
+# 🎥 Video Analizi
 @app.post("/analyze_video")
 async def analyze_video(
     video: UploadFile = File(..., description="Upload a video file (.mp4, .mov, .avi)"),
@@ -103,7 +101,7 @@ async def analyze_video(
     scene_start = 0.0
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360)
-    diff_threshold = max(50000, int(width * height * 0.05))
+    diff_threshold = max(50000, int(width * height * 0.05))  # hassasiyet = %5
 
     i = 0
     while True:
@@ -141,3 +139,8 @@ async def analyze_video(
         "scene_count": len(scenes),
         "scenes": scenes
     }
+
+# Başlangıç mesajı
+@app.get("/status")
+def status():
+    return {"message": "🚀 Multilingual Video Emotion Analyzer is running!"}
