@@ -1,166 +1,101 @@
 <!DOCTYPE html>
 <html lang="tr">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
   <title>🎬 Video GPT Duygu Analizi</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
+      background-color: #f7f9fc;
       text-align: center;
-      padding: 30px;
-      background: #f9fafb;
+      padding: 40px;
     }
     h1 {
-      color: #333;
+      color: #007bff;
     }
-    button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      border: none;
-      background-color: #4caf50;
-      color: white;
-      font-size: 16px;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #45a049;
-    }
-    table {
-      width: 90%;
-      margin: 20px auto;
-      border-collapse: collapse;
-      border-radius: 10px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    th {
-      background-color: #4caf50;
-      color: white;
-      padding: 10px;
-    }
-    td {
-      border: 1px solid #ddd;
+    select, input[type="file"], button {
+      margin: 10px;
       padding: 8px;
-      background: white;
+      font-size: 16px;
     }
-    #status {
-      font-weight: bold;
-      margin-top: 15px;
+    #result {
+      margin-top: 20px;
+      text-align: left;
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.1);
+      max-width: 700px;
+      margin-left: auto;
+      margin-right: auto;
     }
   </style>
 </head>
 <body>
-
   <h1>🎬 Video GPT Duygu Analizi</h1>
-  <p>Bir video yükle, sahne sahne duygusal analizi öğren 🎥</p>
+  <p>Bir video yükle, sahne sahne duygusal analizi öğren 🌍</p>
 
-  <!-- 🎞️ Video Dosyası -->
-  <input type="file" id="videoFile" accept="video/*" />
-
-  <!-- 🌍 Dil Seçeneği -->
-  <select id="lang" style="margin-left:10px; padding:6px;">
+  <!-- 🔤 Dil seçimi -->
+  <label for="lang">Dil seç:</label>
+  <select id="lang">
     <option value="tr">Türkçe 🇹🇷</option>
     <option value="en">English 🇬🇧</option>
     <option value="es">Español 🇪🇸</option>
     <option value="zh">中文 🇨🇳</option>
-  </select>
+  </select><br>
 
-  <!-- 🔍 Analiz Butonu -->
-  <button onclick="analyzeVideo()" style="margin-left:10px;">Analiz Et</button>
+  <input type="file" id="videoFile" accept="video/mp4,video/x-m4v,video/*">
+  <button onclick="analyzeVideo()">Analiz Et</button>
 
-  <!-- ⚙️ Durum Mesajı -->
   <p id="status"></p>
+  <div id="result"></div>
 
-  <!-- 📊 Analiz Sonuçları -->
-  <div id="results" style="margin-top:30px;">
-    <h2>🎞️ Analiz Sonuçları</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>🕒 Süre</th>
-          <th>🎭 Duygu</th>
-          <th>🌈 Mod</th>
-          <th>💡 Prompt</th>
-        </tr>
-      </thead>
-      <tbody id="resultsTable"></tbody>
-    </table>
-    <canvas id="emotionChart" width="400" height="200" style="margin-top:20px;"></canvas>
-  </div>
-
-  <!-- 🚀 Script -->
   <script>
     async function analyzeVideo() {
-      const file = document.getElementById("videoFile").files[0];
-      const lang = document.getElementById("lang").value;
-      if (!file) {
-        alert("⚠️ Lütfen bir video dosyası seçin!");
+      const fileInput = document.getElementById('videoFile');
+      const langSelect = document.getElementById('lang');
+      const statusEl = document.getElementById('status');
+      const resultEl = document.getElementById('result');
+
+      if (!fileInput.files[0]) {
+        alert("Lütfen bir video dosyası seçin.");
         return;
       }
 
       const formData = new FormData();
-      formData.append("file", file);
-      formData.append("lang", lang);
+      formData.append("file", fileInput.files[0]);
+      formData.append("lang", langSelect.value);
 
-      document.getElementById("status").innerText = "Analiz ediliyor... Lütfen bekle ⚙️";
-      document.getElementById("resultsTable").innerHTML = "";
+      statusEl.textContent = "Analiz ediliyor... Lütfen bekle 🕒";
+      resultEl.innerHTML = "";
 
-      const response = await fetch("https://video-gpt-api-1.onrender.com/analyze_video", {
-        method: "POST",
-        body: formData
-      });
+      try {
+        const response = await fetch("https://video-gpt-api-1.onrender.com/analyze_video", {
+          method: "POST",
+          body: formData
+        });
 
-      const data = await response.json();
-      console.log(data);
+        const data = await response.json();
+        console.log(data);
+        statusEl.textContent = "✅ Analiz tamamlandı!";
 
-      if (data.error) {
-        document.getElementById("status").innerText = "❌ Hata: " + data.error;
-        return;
-      }
-
-      document.getElementById("status").innerText =
-        `✅ Analiz tamamlandı! Toplam süre: ${data.total_duration}s | Sahne sayısı: ${data.scene_count}`;
-
-      const table = document.getElementById("resultsTable");
-      const emotionCounts = {};
-
-      data.scenes.forEach(scene => {
-        const row = document.createElement("tr");
-        row.innerHTML = `
-          <td>${scene.scene_start}s → ${scene.scene_end}s</td>
-          <td>${scene.emotion}</td>
-          <td>${scene.mood}</td>
-          <td>${scene.prompt}</td>
+        resultEl.innerHTML = `
+          <h3>${data.message}</h3>
+          <p><strong>Dil:</strong> ${data.language}</p>
+          <p><strong>Sahne Sayısı:</strong> ${data.scene_count}</p>
+          <p><strong>Toplam Süre:</strong> ${data.total_duration} sn</p>
+          <hr>
+          ${data.scenes.map(scene => `
+            <p>🕒 ${scene.scene_start}s → ${scene.scene_end}s<br>
+            <strong>Duygu:</strong> ${scene.emotion}<br>
+            <strong>Prompt:</strong> ${scene.prompt}</p>
+          `).join("")}
         `;
-        table.appendChild(row);
-
-        emotionCounts[scene.emotion] = (emotionCounts[scene.emotion] || 0) + 1;
-      });
-
-      const ctx = document.getElementById("emotionChart").getContext("2d");
-      new Chart(ctx, {
-        type: "pie",
-        data: {
-          labels: Object.keys(emotionCounts),
-          datasets: [{
-            data: Object.values(emotionCounts),
-            backgroundColor: ["#4caf50", "#f44336", "#ffeb3b"]
-          }]
-        },
-        options: {
-          responsive: true,
-          plugins: {
-            legend: { position: "bottom" },
-            title: { display: true, text: "🎭 Duygu Dağılımı" }
-          }
-        }
-      });
+      } catch (error) {
+        statusEl.textContent = "⚠️ Analiz sırasında bir hata oluştu.";
+        console.error(error);
+      }
     }
   </script>
 </body>
 </html>
-
-
