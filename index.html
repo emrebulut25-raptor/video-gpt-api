@@ -92,5 +92,90 @@
     });
   </script>
 </body>
-</html>
+</html><div id="results" style="margin-top:20px;">
+  <h2>🎞️ Analiz Sonuçları</h2>
+  <table border="1" cellpadding="5" cellspacing="0">
+    <thead>
+      <tr>
+        <th>🕒 Süre</th>
+        <th>🎭 Duygu</th>
+        <th>🎬 Açıklama</th>
+        <th>💡 Prompt</th>
+      </tr>
+    </thead>
+    <tbody id="resultsTable"></tbody>
+  </table>
+  <canvas id="emotionChart" width="400" height="200" style="margin-top:20px;"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+async function analyzeVideo() {
+  const file = document.getElementById("videoFile").files[0];
+  if (!file) {
+    alert("Lütfen bir video dosyası yükle!");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", file);
+
+  document.getElementById("status").innerText = "Analiz ediliyor... Lütfen bekle ⚙️";
+  document.getElementById("resultsTable").innerHTML = "";
+
+  const response = await fetch("https://video-gpt-api-1.onrender.com/analyze_video", {
+    method: "POST",
+    body: formData
+  });
+
+  const data = await response.json();
+  console.log(data);
+
+  if (data.error) {
+    document.getElementById("status").innerText = "❌ Hata: " + data.error;
+    return;
+  }
+
+  // Analiz bitti
+  document.getElementById("status").innerText =
+    `✅ Analiz tamamlandı! Toplam süre: ${data.total_duration}s | Sahne sayısı: ${data.scene_count}`;
+
+  const table = document.getElementById("resultsTable");
+  const emotionCounts = { POSITIVE: 0, NEGATIVE: 0, NEUTRAL: 0 };
+
+  data.scenes.forEach(scene => {
+    const row = document.createElement("tr");
+    row.innerHTML = `
+      <td>${scene.scene_start}s → ${scene.scene_end}s</td>
+      <td>${scene.emotion}</td>
+      <td>${scene.storyboard}</td>
+      <td>${scene.prompt}</td>
+    `;
+    table.appendChild(row);
+
+    // Duygu sayısını say
+    emotionCounts[scene.emotion] = (emotionCounts[scene.emotion] || 0) + 1;
+  });
+
+  // Chart.js ile duygu grafiği
+  const ctx = document.getElementById("emotionChart").getContext("2d");
+  new Chart(ctx, {
+    type: "pie",
+    data: {
+      labels: Object.keys(emotionCounts),
+      datasets: [{
+        data: Object.values(emotionCounts),
+        backgroundColor: ["#4caf50", "#f44336", "#ffeb3b"]
+      }]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: "bottom" },
+        title: { display: true, text: "🎭 Duygu Dağılımı" }
+      }
+    }
+  });
+}
+</script>
+
+</div>
 
