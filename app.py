@@ -18,14 +18,30 @@ if not os.path.exists("static"):
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# Ana sayfa: index.html dosyasını göster
+from fastapi import FastAPI, UploadFile, File, Form
+from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+import cv2
+import tempfile
+import os
+import numpy as np
+
+app = FastAPI()
+
+# index.html dosyasını ana sayfa olarak göster
 @app.get("/", response_class=HTMLResponse)
-def serve_index():
-    file_path = os.path.join(os.path.dirname(__file__), "index.html")
+def home():
+    file_path = os.path.join(os.getcwd(), "index.html")
     if not os.path.exists(file_path):
-        return "<h2 style='color:red;'>⚠️ index.html bulunamadı! Lütfen app.py ile aynı klasörde olduğundan emin ol.</h2>"
+        return "<h2 style='color:red;'>⚠️ index.html bulunamadı!</h2>"
     with open(file_path, "r", encoding="utf-8") as f:
         return f.read()
+
+# Basit test endpoint
+@app.get("/status")
+def status():
+    return {"message": "✅ API çalışıyor!"}
+
 
 # Renkten ruh hali çıkarımı
 def color_mood_from_frame(frame: np.ndarray) -> str:
