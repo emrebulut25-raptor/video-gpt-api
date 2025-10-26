@@ -117,7 +117,7 @@ async def analyze_video(
     scene_start = 0.0
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 640)
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 360)
-    diff_threshold = max(50000, int(width * height * 0.05))  # hassasiyet = %5
+    diff_threshold = max(200000, int(width * height * 0.2))  # hassasiyet = %5
 
     i = 0
     while True:
